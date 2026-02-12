@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+//////////////////////
+// ENUMS
+//////////////////////
+
+enum AnnouncementCategory {
+  jadwal
+  libur
+  event
+  umum
+}
+
+enum DonationStatus {
+  open
+  finished
+  upcoming
+}
+
+enum EnrollmentStatus {
+  registered
+  confirmed
+  active
+  dropped
+  rejected
+  completed
+}
+
+enum ClassStatus {
+  active
+  inactive
+}
+
+enum UserRole {
+  admin
+  operator
+}
+
+//////////////////////
+// MODELS
+//////////////////////
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(operator)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TokenBlacklist {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  userId    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model Announcements {
+  announcements_id String   @id @default(uuid()) @db.Char(36)
+  title            String
+  category         AnnouncementCategory
+  content          String   @db.Text
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+}
+
+model Donation {
+  donation_id        String               @id @default(uuid()) @db.Char(36)
+  title              String
+  description        String               @default( " " )
+  status             DonationStatus
+  target_amount      Int
+  collected_amount   Int
+  percent            Int
+  google_form_url    String               @db.Text
+  image              String?
+  jumlah_donatur     Int?
+  start_date         DateTime @db.Date
+  end_date           DateTime @db.Date
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  allocations        DonationAllocation[]
+}
+
+model DonationAllocation {
+  donation_allocation_id String   @id @default(uuid()) @db.Char(36)
+  donation_id            String   @db.Char(36)
+  title                  String
+  amount                 Int
+  percent                Int
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  donation Donation @relation(fields: [donation_id], references: [donation_id], onDelete: Cascade)
+}
+
+model Students {
+  student_id   String   @id @default(uuid()) @db.Char(36)
+  student_name String
+  student_age  Int
+  parent_name  String
+  whatsapp     String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  enrollments  Enrollments[]
+}
+
+model Programs {
+  program_id  String   @id @default(uuid()) @db.Char(36)
+  name        String
+  description String   @db.Text
+  icon        String?
+  image       String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  classes     Classes[]
+}
+
+model Mentors {
+  mentor_id  String   @id @default(uuid()) @db.Char(36)
+  name       String
+  contact    String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  classes    Classes[]
+}
+
+model Classes {
+  class_id   String      @id @default(uuid()) @db.Char(36)
+  program_id String      @db.Char(36)
+  mentor_id  String      @db.Char(36)
+  name       String
+  min_age    Int         @default(0)
+  max_age    Int         @default(0)
+  status     ClassStatus
+  image      String?
+  started_at DateTime    @default(now())
+  ended_at   DateTime    @default(now())
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+
+  program    Programs    @relation(fields: [program_id], references: [program_id], onDelete: Cascade)
+  mentor     Mentors     @relation(fields: [mentor_id], references: [mentor_id], onDelete: Cascade)
+  enrollments Enrollments[]
+  schedules   Schedules[]
+
+  @@index([program_id])
+  @@index([mentor_id])
+}
+
+model Enrollments {
+  enrollment_id String           @id @default(uuid()) @db.Char(36)
+  student_id    String           @db.Char(36)
+  class_id      String           @db.Char(36)
+  status        EnrollmentStatus
+  register_at   DateTime
+  confirmed_at  DateTime?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  student Students @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+  class   Classes  @relation(fields: [class_id], references: [class_id], onDelete: Cascade)
+
+  @@unique([student_id, class_id])
+  @@index([student_id])
+  @@index([class_id])
+}
+
+model Schedules {
+  schedule_id String   @id @default(uuid()) @db.Char(36)
+  class_id    String   @db.Char(36)
+  day_of_week Int      @default(1)// 1=Mon, 7=Sun
+  start_time  String   @default("00:00")// "16:00"
+  end_time    String   @default("00:00")// "17:00"
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  class Classes @relation(fields: [class_id], references: [class_id], onDelete: Cascade)
+
+  @@unique([class_id, day_of_week, start_time])
+  @@index([class_id])
+}
